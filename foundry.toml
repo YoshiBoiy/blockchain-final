@@ -1,0 +1,12 @@
+[profile.default]
+solc_version = "0.8.28"
+evm_version = "cancun"
+src = "src"
+libs = ["lib"]
+remappings = [
+    "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+    "forge-std/=lib/forge-std/src/",
+]
+
+[profile.default.fuzz]
+runs = 256
