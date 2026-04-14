@@ -118,7 +118,7 @@ function sleep(ms) {
 }
 
 function defaultLobbyWsUrl() {
-  return "ws://127.0.0.1:8787";
+  return "ws://buzz-carnival.centralus.cloudapp.azure.com/ws/";
 }
 
 function loadLobbyWsUrlField() {
