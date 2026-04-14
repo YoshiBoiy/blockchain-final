@@ -9,7 +9,7 @@ set -euo pipefail
 #   ADDRESS=0x... START_D=32 END_D=120 SUBMIT_SCRIPT=../submit.js ./mine_submit_loop.sh
 
 ADDRESS="${ADDRESS:-0xDB1940e77471e238875c60716413137A4080428B}"
-START_D="${START_D:-32}"
+START_D="${START_D:-44}"
 END_D="${END_D:-120}"
 SUBMIT_SCRIPT="${SUBMIT_SCRIPT:-./submit.js}"
 

@@ -184,7 +184,7 @@ know what the DAO hack was, you know what to do.
 
 ```
 
-KOTH is a **political war game**. One player is the King. Everyone else can
+KOTHf is a **political war game**. One player is the King. Everyone else can
 either support the King, rebel against them, or play both sides.
 
 > **Note:** All KOTH fees and parameters (coup cost, quorum, heartbeat intervals,

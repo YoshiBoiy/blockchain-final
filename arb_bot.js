@@ -3,8 +3,8 @@ const { ethers } = require("ethers");
 // ============================================
 // CONFIGURATION
 // ============================================
-const RPC_URL = "https://ethereum-sepolia-rpc.publicnode.com";
-const PRIVATE_KEY = "0x722c091f2e0d9ea2092c84d8e5a7a112a06952f31209c4c7f1ae9769fe5d8213";
+const RPC_URL = process.env.SEPOLIA_RPC_URL || process.env.RPC_URL;
+const PRIVATE_KEY = process.env.PRIVATE_KEY;
 
 // Contract Addresses
 const DEX1_ADDRESS = "0xCadcEC3A21dCF45044adB463d865ce7c2B4B6971"; // BuzzSwap
@@ -37,6 +37,14 @@ async function ensureApproval(tokenContract, dexAddress, tokenName, dexName) {
 }
 
 async function main() {
+    if (!RPC_URL || !PRIVATE_KEY) {
+        console.error(
+            "Set SEPOLIA_RPC_URL (or RPC_URL) and PRIVATE_KEY, e.g.:\n" +
+                "  set -a && source .env.local && set +a && node arb_bot.js"
+        );
+        process.exit(1);
+    }
+
     console.log("Initializing Arbitrage Bot...");
     const provider = new ethers.JsonRpcProvider(RPC_URL);
     const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
