@@ -25,16 +25,18 @@
         }                                                                                                              \
     } while (0)
 
-__global__ void mine_kernel(const uint8_t *addr20, unsigned d, int *found, unsigned long long *found_nonce) {
+__global__ void mine_kernel(const uint8_t *addr20, unsigned d, uint64_t start_nonce, uint64_t global_stride, int *found,
+                            unsigned long long *found_nonce) {
     uint64_t tid = (uint64_t)blockIdx.x * (uint64_t)blockDim.x + (uint64_t)threadIdx.x;
-    uint64_t nstride = (uint64_t)gridDim.x * (uint64_t)blockDim.x;
+    uint64_t local_stride = (uint64_t)gridDim.x * (uint64_t)blockDim.x;
+    uint64_t nstride = local_stride * global_stride;
 
     uint8_t a20[20];
 #pragma unroll
     for (int i = 0; i < 20; i++)
         a20[i] = addr20[i];
 
-    for (uint64_t nonce = tid;; nonce += nstride) {
+    for (uint64_t nonce = start_nonce + tid * global_stride;; nonce += nstride) {
         if (atomicAdd(found, 0) != 0)
             return;
         uint8_t in[64], h[32];
@@ -69,8 +71,9 @@ static void parse_address(const char *hex, uint8_t out20[20]) {
 
 int main(int argc, char **argv) {
     if (argc < 3) {
-        fprintf(stderr, "Usage: %s <0xAddress> <d_difficulty_uint>\n", argv[0]);
+        fprintf(stderr, "Usage: %s <0xAddress> <d_difficulty_uint> [start_nonce] [global_stride]\n", argv[0]);
         fprintf(stderr, "  Example: %s 0xDB1940e77471e238875c60716413137A4080428B 28\n", argv[0]);
+        fprintf(stderr, "  Sharded: %s 0xDB1940e77471e238875c60716413137A4080428B 28 3 16\n", argv[0]);
         return 1;
     }
     uint8_t h_addr[20];
@@ -78,6 +81,18 @@ int main(int argc, char **argv) {
     unsigned d = (unsigned)strtoul(argv[2], nullptr, 10);
     if (d < 28 || d > 255) {
         fprintf(stderr, "d should be 28..255 (contract requires d>=28)\n");
+        return 1;
+    }
+    uint64_t start_nonce = 0;
+    uint64_t global_stride = 1;
+    if (argc >= 4) {
+        start_nonce = (uint64_t)strtoull(argv[3], nullptr, 10);
+    }
+    if (argc >= 5) {
+        global_stride = (uint64_t)strtoull(argv[4], nullptr, 10);
+    }
+    if (global_stride == 0) {
+        fprintf(stderr, "global_stride must be >= 1\n");
         return 1;
     }
 
@@ -98,9 +113,10 @@ int main(int argc, char **argv) {
     if (blocks < 32)
         blocks = 32;
 
-    fprintf(stderr, "GPU %s | blocks=%d threads=%d | d=%u | mining...\n", prop.name, blocks, threads, d);
+    fprintf(stderr, "GPU %s | blocks=%d threads=%d | d=%u | start=%llu stride=%llu | mining...\n", prop.name, blocks,
+            threads, d, (unsigned long long)start_nonce, (unsigned long long)global_stride);
 
-    mine_kernel<<<blocks, threads>>>(d_addr, d, d_found, d_nonce);
+    mine_kernel<<<blocks, threads>>>(d_addr, d, start_nonce, global_stride, d_found, d_nonce);
     CUDA_OK(cudaGetLastError());
     CUDA_OK(cudaDeviceSynchronize());
 
