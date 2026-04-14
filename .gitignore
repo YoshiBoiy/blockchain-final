@@ -4,4 +4,4 @@ broadcast/
 .env
 .env.local
 pay_to_mine_state.json
-carnival-hub/
+carnival-hub/node_modules/

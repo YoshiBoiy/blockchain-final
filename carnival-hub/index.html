@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BuzzCarnival Terminal Hub</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="./logo.png" />
+  <link rel="icon" type="image/x-icon" href="./logo.ico" />
+  <link rel="shortcut icon" href="./logo.ico" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="scanlines" aria-hidden="true"></div>
+  <header class="topbar">
+    <div class="brand">
+      <span class="prompt">&gt;</span>
+      <span>BUZZCARNIVAL TERMINAL HUB</span>
+      <span class="cursor">_</span>
+    </div>
+    <div class="connect-wrap">
+      <button id="connectWalletBtn" class="btn">[ CONNECT WALLET ]</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="landingSection" class="landing">
+      <nav class="window navline">
+        <div class="nav-links">
+          <a href="#heroPane">./overview</a>
+          <a href="#featurePane">./games</a>
+          <a href="#toolPane">./tools</a>
+        </div>
+        <span class="muted">[ STATUS: ONLINE ]</span>
+      </nav>
+
+      <section id="heroPane" class="window hero-pane">
+        <p class="muted">&gt; INITIALIZING CARNIVAL SYSTEM PROTOCOLS...</p>
+        <h1>"REBELLIONS ARE BUILT ON HOPE."</h1>
+        <p class="typing" id="typingText">- rogue one</p>
+        <p class="hero-copy">
+          A unified terminal panel for <code>duel1v1</code>, <code>duel_highroller</code>, <code>mayor_voting</code>, and coordinated King of the Hill operations.
+        </p>
+        <div class="hero-actions">
+          <button class="btn" id="jumpConnectBtn">[ START SESSION ]</button>
+          <a class="btn ghost" href="#toolPane">[ WATCH TOOLS ]</a>
+        </div>
+      </section>
+
+      <section class="stats-grid">
+        <article class="window stat">
+          <p class="muted">DUEL 1V1</p>
+          <pre class="tool-ascii">
+        o      _o
+       <|\,/ /` |>
+    ___/_>_____<_\___
+          </pre>
+        </article>
+        <article class="window stat">
+          <p class="muted">DUEL HIGHROLLER</p>
+          <pre class="tool-ascii">    
+           \ /
+       |_O  X  O_\
+        /`-/ \-'\
+       | \     / |
+ _____/___\____|_\_____
+          </pre>
+        </article>
+        <article class="window stat">
+          <p class="muted">MAYOR VOTING</p>
+          <pre class="tool-ascii">
+               (\_/)
+       .-""-.-.-' 6\
+      /  \      _.--'
+     (\  /_---\\_\_
+      `'-.
+     ,___)
+          </pre>
+        </article>
+        <article class="window stat">
+          <p class="muted">KOTH OPS</p>
+          <pre class="tool-ascii">
+          _.+._
+        (^\/^\/^)
+         \@*@*@/
+         {_____}
+          </pre>
+        </article>
+      </section>
+
+      <section id="featurePane" class="window feature-pane">
+        <div class="feature-two-col">
+          <div>
+            <h2>COLLUDE TO TAKE THE THRONE.</h2>
+            <p>
+              Coordinate game execution from one interface: run transactions with wallet mode, or inspect strategy
+              using read-only mode from pasted address/ENS.
+            </p>
+            <p class="muted">&gt; sell, beg, steal, borrow, or barter your way up the ladder.</p>
+          </div>
+          <div class="visual-box">
+            <div class="crown-3d-wrap" aria-label="rotating ascii crown">
+              <pre class="crown-face face-a">
+             _
+           _\ /_
+           >_X_<
+    .---._  /_\  _.---.
+  /`.---._`{/ \}`_.---.`\
+ | /   ___`{\_/}`___   \ |
+ \ \."`*  `"{_}"`  *`"./ /
+  \ \  )\  _\ /_  /(  / /
+   \ *<()( >_X_< )()>* /
+    |._)/._./_\._.\(_.|
+    |() () () () () ()|
+    <<*>><<*>><*>><<*>>
+   `"""""""""""""""""""`
+              </pre>
+              <pre class="crown-face face-b">
+             _
+           _\ /_
+           >_X_<
+    .---._  /_\  _.---.
+  /`.---._`{/ \}`_.---.`\
+ | /   ___`{\_/}`___   \ |
+ \ \."`*  `"{_}"`  *`"./ /
+  \ \  )\  _\ /_  /(  / /
+   \ *<()( >_X_< )()>* /
+    |._)/._./_\._.\(_.|
+    |() () () () () ()|
+    <<*>><<*>><*>><<*>>
+   `"""""""""""""""""""`
+              </pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="toolPane" class="window">
+        <div class="window-title">&gt; LS ./MODULES/GAMES</div>
+        <div class="tool-explanations cards">
+          <article class="window mini-card">
+            <h3>01 DUEL 1V1</h3>
+            <p>Entry cost is 1 BUZZ. Queue up and settle against a second player.</p>
+          </article>
+          <article class="window mini-card">
+            <h3>02 DUEL HIGHROLLER</h3>
+            <p>Entry cost is 5 BUZZ with larger reward outcomes on win.</p>
+          </article>
+          <article class="window mini-card">
+            <h3>03 MAYOR VOTING</h3>
+            <p>Use whole BUZZ bids from 1-100; lowest unique wins the round pot.</p>
+          </article>
+          <article class="window mini-card">
+            <h3>04 KOTH OPERATIONS</h3>
+            <p>Live king feed plus encoded collusion notes for off-chain coordination.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="window connect-pane">
+        <div class="window-title">+--- CONNECT MODES ---+</div>
+        <p><strong>A:</strong> Wallet connect for transactions.</p>
+        <p><strong>B:</strong> Paste ETH address / ENS for read-only strategy tracking.</p>
+        <div class="manual-connect">
+          <label for="manualAddressInput">user@carnival:~$ connect --addr</label>
+          <input id="manualAddressInput" placeholder="0x... or name.eth" />
+          <button id="manualConnectBtn" class="btn">[ CONNECT READ-ONLY ]</button>
+        </div>
+        <p class="muted">Wallet mode is required to send on-chain game calls.</p>
+      </section>
+
+    </section>
+
+    <section id="dashboardSection" class="dashboard hidden">
+      <div class="window summary">
+        <div class="window-title">+--- OPERATOR STATUS ---+</div>
+        <p id="connectionLabel">wallet: disconnected</p>
+        <p id="addressLabel">address: n/a</p>
+        <p id="buzzBalanceLabel">BUZZ balance: ...</p>
+        <p id="allowanceLabel">carnival allowance: ...</p>
+        <button id="refreshBtn" class="btn">[ REFRESH ]</button>
+      </div>
+
+      <aside class="window sidebar">
+        <div class="window-title">+--- TOOLS ---+</div>
+
+        <section class="tool lobby-server">
+          <h3>LOBBY SERVER</h3>
+          <p class="muted small">
+            Matchmaking runs off-chain. Start the server: <code>cd carnival-hub &amp;&amp; npm install &amp;&amp; npm run lobby</code>
+          </p>
+          <label for="lobbyWsUrl">user@carnival:~$ lobby --ws</label>
+          <input id="lobbyWsUrl" type="text" placeholder="ws://127.0.0.1:8787" autocomplete="off" />
+          <div class="btn-row">
+            <button id="lobbyConnectBtn" class="btn">[ CONNECT ]</button>
+            <button id="lobbyDisconnectBtn" class="btn ghost" type="button">[ DISCONNECT ]</button>
+          </div>
+          <p id="lobbyWsStatus" class="muted lobby-status">disconnected</p>
+        </section>
+
+        <section class="tool">
+          <h3>DUEL 1V1 <span class="tag">2 players</span></h3>
+          <p id="duelQueueStatus" class="queue-line muted">Join the lobby queue; entry BUZZ is sent only when the match starts.</p>
+          <div class="btn-row">
+            <button id="duelJoinQueueBtn" class="btn">[ JOIN LOBBY ]</button>
+            <button id="duelLeaveQueueBtn" class="btn ghost" type="button">[ LEAVE ]</button>
+          </div>
+          <details class="solo-advanced">
+            <summary>Solo tx (bypass lobby — only for testing)</summary>
+            <button id="duelBtn" class="btn" type="button">[ RUN duel1v1() now ]</button>
+          </details>
+        </section>
+
+        <section class="tool">
+          <h3>DUEL HIGHROLLER <span class="tag">2 players</span></h3>
+          <p id="highrollerQueueStatus" class="queue-line muted">Join the lobby queue; entry BUZZ is sent only when the match starts.</p>
+          <div class="btn-row">
+            <button id="highrollerJoinQueueBtn" class="btn">[ JOIN LOBBY ]</button>
+            <button id="highrollerLeaveQueueBtn" class="btn ghost" type="button">[ LEAVE ]</button>
+          </div>
+          <details class="solo-advanced">
+            <summary>Solo tx (bypass lobby — only for testing)</summary>
+            <button id="highrollerBtn" class="btn" type="button">[ RUN duel_highroller() now ]</button>
+          </details>
+        </section>
+
+        <section class="tool">
+          <h3>MAYOR VOTING <span class="tag">5 players</span></h3>
+          <label for="mayorAmountInput">user@carnival:~$ mayor --buzz (your bid for this round)</label>
+          <input id="mayorAmountInput" type="number" min="1" max="100" value="1" />
+          <p id="mayorQueueStatus" class="queue-line muted">Join with your bid locked for this round; BUZZ is sent only when 5 players are matched.</p>
+          <div class="btn-row">
+            <button id="mayorJoinQueueBtn" class="btn">[ JOIN LOBBY ]</button>
+            <button id="mayorLeaveQueueBtn" class="btn ghost" type="button">[ LEAVE ]</button>
+          </div>
+          <details class="solo-advanced">
+            <summary>Solo tx (bypass lobby — only for testing)</summary>
+            <button id="mayorBtn" class="btn" type="button">[ RUN mayor_voting() now ]</button>
+          </details>
+        </section>
+
+        <section class="tool">
+          <h3>KING OF THE HILL</h3>
+          <p>Current king: <a id="kingLabel" href="#" target="_blank" rel="noopener noreferrer">loading...</a></p>
+          <button id="refreshKingBtn" class="btn">[ REFRESH KING ]</button>
+          <label for="colludeInput">secret://collude</label>
+          <textarea id="colludeInput" rows="3" placeholder="type collusion message..."></textarea>
+          <button id="encodeBtn" class="btn">[ ENCODE MESSAGE ]</button>
+          <textarea id="encodedOutput" rows="3" readonly placeholder="encoded output appears here"></textarea>
+        </section>
+      </aside>
+
+      <div class="window logs">
+        <div class="window-title">+--- EVENT LOG ---+</div>
+        <div id="logOutput"></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.16.0/dist/ethers.umd.min.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>

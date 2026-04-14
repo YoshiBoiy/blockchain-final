@@ -1,0 +1,11 @@
+{
+  "name": "carnival-hub",
+  "private": true,
+  "description": "Static hub + optional WebSocket lobby server",
+  "scripts": {
+    "lobby": "node lobby-server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
