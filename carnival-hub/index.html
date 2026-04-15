@@ -174,27 +174,34 @@
     </section>
 
     <section id="dashboardSection" class="dashboard hidden">
-      <div class="window summary">
-        <div class="window-title">+--- OPERATOR STATUS ---+</div>
-        <p id="connectionLabel">wallet: disconnected</p>
-        <p id="addressLabel">address: n/a</p>
-        <p id="buzzBalanceLabel">BUZZ balance: ...</p>
-        <p id="allowanceLabel">carnival allowance: ...</p>
-        <button id="refreshBtn" class="btn">[ REFRESH ]</button>
-      </div>
-
       <aside class="window sidebar">
         <div class="window-title">+--- TOOLS ---+</div>
 
         <section class="tool lobby-server">
           <h3>LOBBY SERVER</h3>
           <p class="muted small">
-            Matchmaking runs off-chain. Start the server: <code>cd carnival-hub &amp;&amp; npm install &amp;&amp; npm run lobby</code>
+            Matchmaking runs off-chain. Connect to public queue or your own WebSocket URL for a private collusion lobby.
           </p>
-          <label for="lobbyWsUrl">user@carnival:~$ lobby --ws</label>
-          <input id="lobbyWsUrl" type="text" placeholder="ws://127.0.0.1:8787" autocomplete="off" />
+          <div class="lobby-url-grid">
+            <div class="lobby-url-cell lobby-url-cell--public">
+              <div class="lobby-url-heading">
+                <input type="radio" name="lobbyTarget" id="lobbyTargetPublic" value="public" checked />
+                <label for="lobbyTargetPublic" class="lobby-url-label">PUBLIC LOBBY</label>
+              </div>
+              <input id="lobbyWsUrlPublic" class="lobby-ws-input" type="text" readonly autocomplete="off" value="wss://buzz-carnival" />
+              <p class="muted small lobby-toolkit">First-come, first-served — open matchmaking with the whole class.</p>
+            </div>
+            <div class="lobby-url-cell lobby-url-cell--private">
+              <div class="lobby-url-heading">
+                <input type="radio" name="lobbyTarget" id="lobbyTargetPrivate" value="private" />
+                <label for="lobbyTargetPrivate" class="lobby-url-label">PRIVATE LOBBY</label>
+              </div>
+              <input id="lobbyWsUrlPrivate" class="lobby-ws-input" type="text" placeholder="wss://your-host/ws/" autocomplete="off" />
+              <p class="muted small lobby-toolkit">Your own WebSocket URL — only people you share it with join.</p>
+            </div>
+          </div>
           <div class="btn-row">
-            <button id="lobbyConnectBtn" class="btn">[ CONNECT ]</button>
+            <button id="lobbyConnectBtn" class="btn" type="button">[ CONNECT ]</button>
             <button id="lobbyDisconnectBtn" class="btn ghost" type="button">[ DISCONNECT ]</button>
           </div>
           <p id="lobbyWsStatus" class="muted lobby-status">disconnected</p>
@@ -204,8 +211,12 @@
           <h3>DUEL 1V1 <span class="tag">2 players</span></h3>
           <p id="duelQueueStatus" class="queue-line muted">Join the lobby queue; entry BUZZ is sent only when the match starts.</p>
           <div class="btn-row">
-            <button id="duelJoinQueueBtn" class="btn">[ JOIN LOBBY ]</button>
+            <button id="duelJoinQueueBtn" class="btn" type="button">[ JOIN LOBBY ]</button>
             <button id="duelLeaveQueueBtn" class="btn ghost" type="button">[ LEAVE ]</button>
+          </div>
+          <div id="duelLobbyPanel" class="lobby-session-panel hidden" aria-hidden="true">
+            <div class="lobby-session-head">IN LOBBY QUEUE</div>
+            <p id="duelLobbyPanelText" class="lobby-session-body"></p>
           </div>
           <details class="solo-advanced">
             <summary>Solo tx (bypass lobby — only for testing)</summary>
@@ -217,8 +228,12 @@
           <h3>DUEL HIGHROLLER <span class="tag">2 players</span></h3>
           <p id="highrollerQueueStatus" class="queue-line muted">Join the lobby queue; entry BUZZ is sent only when the match starts.</p>
           <div class="btn-row">
-            <button id="highrollerJoinQueueBtn" class="btn">[ JOIN LOBBY ]</button>
+            <button id="highrollerJoinQueueBtn" class="btn" type="button">[ JOIN LOBBY ]</button>
             <button id="highrollerLeaveQueueBtn" class="btn ghost" type="button">[ LEAVE ]</button>
+          </div>
+          <div id="highrollerLobbyPanel" class="lobby-session-panel hidden" aria-hidden="true">
+            <div class="lobby-session-head">IN LOBBY QUEUE</div>
+            <p id="highrollerLobbyPanelText" class="lobby-session-body"></p>
           </div>
           <details class="solo-advanced">
             <summary>Solo tx (bypass lobby — only for testing)</summary>
@@ -232,8 +247,12 @@
           <input id="mayorAmountInput" type="number" min="1" max="100" value="1" />
           <p id="mayorQueueStatus" class="queue-line muted">Join with your bid locked for this round; BUZZ is sent only when 5 players are matched.</p>
           <div class="btn-row">
-            <button id="mayorJoinQueueBtn" class="btn">[ JOIN LOBBY ]</button>
+            <button id="mayorJoinQueueBtn" class="btn" type="button">[ JOIN LOBBY ]</button>
             <button id="mayorLeaveQueueBtn" class="btn ghost" type="button">[ LEAVE ]</button>
+          </div>
+          <div id="mayorLobbyPanel" class="lobby-session-panel hidden" aria-hidden="true">
+            <div class="lobby-session-head">IN LOBBY QUEUE</div>
+            <p id="mayorLobbyPanelText" class="lobby-session-body"></p>
           </div>
           <details class="solo-advanced">
             <summary>Solo tx (bypass lobby — only for testing)</summary>
@@ -244,13 +263,22 @@
         <section class="tool">
           <h3>KING OF THE HILL</h3>
           <p>Current king: <a id="kingLabel" href="#" target="_blank" rel="noopener noreferrer">loading...</a></p>
-          <button id="refreshKingBtn" class="btn">[ REFRESH KING ]</button>
+          <button id="refreshKingBtn" class="btn" type="button">[ REFRESH KING ]</button>
           <label for="colludeInput">secret://collude</label>
           <textarea id="colludeInput" rows="3" placeholder="type collusion message..."></textarea>
-          <button id="encodeBtn" class="btn">[ ENCODE MESSAGE ]</button>
+          <button id="encodeBtn" class="btn" type="button">[ ENCODE MESSAGE ]</button>
           <textarea id="encodedOutput" rows="3" readonly placeholder="encoded output appears here"></textarea>
         </section>
       </aside>
+
+      <div class="window summary">
+        <div class="window-title">+--- OPERATOR STATUS ---+</div>
+        <p id="connectionLabel">wallet: disconnected</p>
+        <p id="addressLabel">address: n/a</p>
+        <p id="buzzBalanceLabel">BUZZ balance: ...</p>
+        <p id="allowanceLabel">carnival allowance: ...</p>
+        <button id="refreshBtn" class="btn" type="button">[ REFRESH ]</button>
+      </div>
 
       <div class="window logs">
         <div class="window-title">+--- EVENT LOG ---+</div>

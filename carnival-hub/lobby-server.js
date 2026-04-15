@@ -6,6 +6,8 @@
  */
 
 const { WebSocketServer } = require("ws");
+const crypto = require("crypto");
+const { ethers } = require("ethers");
 
 const PORT = Number(process.env.LOBBY_PORT || 8787);
 
@@ -22,9 +24,59 @@ const queues = {
   mayor_voting: [],
 };
 
+const AUTH_CHALLENGE_TTL_MS = 2 * 60 * 1000;
+const HEARTBEAT_STALE_MS = 45 * 1000;
+const HEARTBEAT_SWEEP_MS = 15 * 1000;
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const RATE_LIMIT_MAX_JOINS = 5;
+
+const ipJoinHistory = new Map();
+const addressJoinHistory = new Map();
+
+function log(event, fields = {}) {
+  console.log(JSON.stringify({ ts: new Date().toISOString(), event, ...fields }));
+}
+
+function nowMs() {
+  return Date.now();
+}
+
+function pushAndPrune(historyMap, key, now) {
+  const arr = historyMap.get(key) || [];
+  const fresh = arr.filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
+  fresh.push(now);
+  historyMap.set(key, fresh);
+  return fresh.length;
+}
+
+function checkRateLimit(ip, address) {
+  const now = nowMs();
+  const ipCount = pushAndPrune(ipJoinHistory, ip || "unknown", now);
+  const addrCount = pushAndPrune(addressJoinHistory, address, now);
+  return ipCount <= RATE_LIMIT_MAX_JOINS && addrCount <= RATE_LIMIT_MAX_JOINS;
+}
+
+function makeChallenge(clientId, address) {
+  const nonce = crypto.randomBytes(16).toString("hex");
+  const ts = nowMs();
+  const msg =
+    `BuzzLobby Auth\n` +
+    `clientId:${clientId}\n` +
+    `address:${address}\n` +
+    `nonce:${nonce}\n` +
+    `issuedAt:${ts}`;
+  return { nonce, ts, msg };
+}
+
 function removeClientEverywhere(clientId) {
   for (const game of Object.keys(queues)) {
     queues[game] = queues[game].filter((e) => e.clientId !== clientId);
+  }
+}
+
+function removeClosedSocketEntries() {
+  for (const game of Object.keys(queues)) {
+    queues[game] = queues[game].filter((e) => e.ws.readyState === 1);
   }
 }
 
@@ -72,15 +124,100 @@ function tryMatch(game) {
 
 const wss = new WebSocketServer({ port: PORT });
 
-wss.on("connection", (ws) => {
+wss.on("connection", (ws, req) => {
   let boundClientId = null;
+  ws.__auth = {
+    ok: false,
+    address: null,
+    clientId: null,
+    challengeMsg: null,
+    challengeIssuedAt: 0,
+  };
+  ws.__lastSeenAt = nowMs();
+  ws.__ip = req && req.socket ? req.socket.remoteAddress : "unknown";
+  log("ws_connected", { ip: ws.__ip });
 
   ws.on("message", (raw) => {
+    ws.__lastSeenAt = nowMs();
     let msg;
     try {
       msg = JSON.parse(raw.toString());
     } catch {
       ws.send(JSON.stringify({ type: "error", message: "Invalid JSON" }));
+      return;
+    }
+
+    if (msg.type === "ping") {
+      ws.send(JSON.stringify({ type: "pong", ts: nowMs() }));
+      return;
+    }
+
+    if (msg.type === "auth_hello") {
+      const clientId = (msg.clientId || "").toString();
+      const rawAddr = (msg.address || "").trim();
+      if (!clientId || !/^0x[a-fA-F0-9]{40}$/.test(rawAddr)) {
+        ws.send(JSON.stringify({ type: "auth_error", message: "auth_hello requires clientId + valid address" }));
+        return;
+      }
+      const address = rawAddr.toLowerCase();
+      const ch = makeChallenge(clientId, address);
+      ws.__auth.ok = false;
+      ws.__auth.address = address;
+      ws.__auth.clientId = clientId;
+      ws.__auth.challengeMsg = ch.msg;
+      ws.__auth.challengeIssuedAt = ch.ts;
+      ws.send(
+        JSON.stringify({
+          type: "auth_challenge",
+          clientId,
+          address,
+          message: ch.msg,
+          expiresInMs: AUTH_CHALLENGE_TTL_MS,
+        })
+      );
+      return;
+    }
+
+    if (msg.type === "auth_response") {
+      const clientId = (msg.clientId || "").toString();
+      const rawAddr = (msg.address || "").trim();
+      const signature = (msg.signature || "").toString();
+      if (!clientId || !/^0x[a-fA-F0-9]{40}$/.test(rawAddr) || !signature) {
+        ws.send(JSON.stringify({ type: "auth_error", message: "auth_response requires clientId/address/signature" }));
+        return;
+      }
+      const address = rawAddr.toLowerCase();
+      if (
+        !ws.__auth.challengeMsg ||
+        !ws.__auth.clientId ||
+        ws.__auth.clientId !== clientId ||
+        ws.__auth.address !== address
+      ) {
+        ws.send(JSON.stringify({ type: "auth_error", message: "No matching challenge for this client/address" }));
+        return;
+      }
+      if (nowMs() - ws.__auth.challengeIssuedAt > AUTH_CHALLENGE_TTL_MS) {
+        ws.send(JSON.stringify({ type: "auth_error", message: "Challenge expired. Send auth_hello again." }));
+        return;
+      }
+
+      let recovered;
+      try {
+        recovered = ethers.verifyMessage(ws.__auth.challengeMsg, signature).toLowerCase();
+      } catch {
+        ws.send(JSON.stringify({ type: "auth_error", message: "Invalid signature format" }));
+        return;
+      }
+      if (recovered !== address) {
+        ws.send(JSON.stringify({ type: "auth_error", message: "Signature does not match address" }));
+        return;
+      }
+
+      ws.__auth.ok = true;
+      ws.__auth.address = address;
+      ws.__auth.clientId = clientId;
+      ws.send(JSON.stringify({ type: "auth_ok", address, clientId }));
+      log("ws_auth_ok", { ip: ws.__ip, clientId, address });
       return;
     }
 
@@ -95,6 +232,16 @@ wss.on("connection", (ws) => {
       const address = rawAddr.toLowerCase();
       if (!CAPACITY[game]) {
         ws.send(JSON.stringify({ type: "error", message: "Unknown game" }));
+        return;
+      }
+
+      if (!ws.__auth.ok || ws.__auth.address !== address || ws.__auth.clientId !== clientId) {
+        ws.send(JSON.stringify({ type: "error", message: "Authenticate wallet first (auth_hello/auth_response)." }));
+        return;
+      }
+
+      if (!checkRateLimit(ws.__ip, address)) {
+        ws.send(JSON.stringify({ type: "error", message: "Rate limit exceeded (max 5 joins/min per IP/address)." }));
         return;
       }
 
@@ -160,7 +307,28 @@ wss.on("connection", (ws) => {
         broadcastQueueStatus(g);
       }
     }
+    log("ws_disconnected", { ip: ws.__ip, clientId: boundClientId || null });
   });
 });
 
-console.log(`BuzzCarnival lobby listening on ws://127.0.0.1:${PORT}`);
+setInterval(() => {
+  const now = nowMs();
+  wss.clients.forEach((ws) => {
+    if (ws.readyState !== 1) return;
+    if (now - (ws.__lastSeenAt || 0) > HEARTBEAT_STALE_MS) {
+      try {
+        ws.send(JSON.stringify({ type: "error", message: "Disconnected: heartbeat timeout" }));
+      } catch {
+        /* ignore */
+      }
+      try {
+        ws.close();
+      } catch {
+        /* ignore */
+      }
+    }
+  });
+  removeClosedSocketEntries();
+}, HEARTBEAT_SWEEP_MS);
+
+console.log(`BuzzCarnival lobby listening.`);

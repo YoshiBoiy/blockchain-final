@@ -34,7 +34,10 @@ npm install
 npm run lobby
 ```
 
-Default WebSocket URL: `ws://127.0.0.1:8787` (override with `LOBBY_WS_URL` in the UI). For a page served over **HTTPS**, the browser requires **WSS** to a reachable host (deploy the lobby behind TLS or use a tunnel).
+- **Public lobby** (readonly in UI): `wss://buzz-carnival.centralus.cloudapp.azure.com/ws/` — class-wide, first-come first-served queue.
+- **Private lobby** (optional): paste your own `wss://...` URL if you run a separate lobby for a collusion group; when set, connect uses that URL instead of public.
+
+For pages served over **HTTPS**, use **WSS** URLs. Private URL is persisted as `LOBBY_WS_URL_PRIVATE` in localStorage.
 
 ## Notes
 

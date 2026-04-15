@@ -46,6 +46,8 @@ const lobbyState = {
   ws: null,
   clientId: getOrCreateLobbyClientId(),
   queueGame: null,
+  authenticated: false,
+  heartbeatTimer: null,
 };
 
 const el = {
@@ -60,10 +62,13 @@ const el = {
   buzzBalanceLabel: document.getElementById("buzzBalanceLabel"),
   allowanceLabel: document.getElementById("allowanceLabel"),
   refreshBtn: document.getElementById("refreshBtn"),
-  lobbyWsUrl: document.getElementById("lobbyWsUrl"),
+  lobbyWsUrlPublic: document.getElementById("lobbyWsUrlPublic"),
+  lobbyWsUrlPrivate: document.getElementById("lobbyWsUrlPrivate"),
   lobbyConnectBtn: document.getElementById("lobbyConnectBtn"),
   lobbyDisconnectBtn: document.getElementById("lobbyDisconnectBtn"),
   lobbyWsStatus: document.getElementById("lobbyWsStatus"),
+  lobbyTargetPublic: document.getElementById("lobbyTargetPublic"),
+  lobbyTargetPrivate: document.getElementById("lobbyTargetPrivate"),
   duelQueueStatus: document.getElementById("duelQueueStatus"),
   duelJoinQueueBtn: document.getElementById("duelJoinQueueBtn"),
   duelLeaveQueueBtn: document.getElementById("duelLeaveQueueBtn"),
@@ -73,6 +78,12 @@ const el = {
   mayorQueueStatus: document.getElementById("mayorQueueStatus"),
   mayorJoinQueueBtn: document.getElementById("mayorJoinQueueBtn"),
   mayorLeaveQueueBtn: document.getElementById("mayorLeaveQueueBtn"),
+  duelLobbyPanel: document.getElementById("duelLobbyPanel"),
+  duelLobbyPanelText: document.getElementById("duelLobbyPanelText"),
+  highrollerLobbyPanel: document.getElementById("highrollerLobbyPanel"),
+  highrollerLobbyPanelText: document.getElementById("highrollerLobbyPanelText"),
+  mayorLobbyPanel: document.getElementById("mayorLobbyPanel"),
+  mayorLobbyPanelText: document.getElementById("mayorLobbyPanelText"),
   duelBtn: document.getElementById("duelBtn"),
   highrollerBtn: document.getElementById("highrollerBtn"),
   mayorAmountInput: document.getElementById("mayorAmountInput"),
@@ -118,17 +129,62 @@ function sleep(ms) {
 }
 
 function defaultLobbyWsUrl() {
-  return "ws://buzz-carnival.centralus.cloudapp.azure.com/ws/";
+  return "wss://buzz-carnival.centralus.cloudapp.azure.com/ws/";
+}
+
+/** Shown in the UI; full URL is still `defaultLobbyWsUrl()` for connections. */
+function publicLobbyUrlDisplay() {
+  return "wss://buzz-carnival";
+}
+
+const LOBBY_TARGET_KEY = "LOBBY_TARGET";
+
+function getLobbyTarget() {
+  if (el.lobbyTargetPrivate && el.lobbyTargetPrivate.checked) return "private";
+  return "public";
+}
+
+function setLobbyTargetRadio(value) {
+  if (value === "private" && el.lobbyTargetPrivate) {
+    el.lobbyTargetPrivate.checked = true;
+  } else if (el.lobbyTargetPublic) {
+    el.lobbyTargetPublic.checked = true;
+  }
+}
+
+function persistLobbyTarget() {
+  try {
+    localStorage.setItem(LOBBY_TARGET_KEY, getLobbyTarget());
+  } catch {
+    /* ignore */
+  }
 }
 
 function loadLobbyWsUrlField() {
   try {
-    const saved = localStorage.getItem("LOBBY_WS_URL");
-    if (saved && el.lobbyWsUrl) {
-      el.lobbyWsUrl.value = saved;
-    } else if (el.lobbyWsUrl && !el.lobbyWsUrl.value) {
-      el.lobbyWsUrl.value = defaultLobbyWsUrl();
+    if (el.lobbyWsUrlPublic) {
+      el.lobbyWsUrlPublic.value = publicLobbyUrlDisplay();
     }
+    const savedPrivate = localStorage.getItem("LOBBY_WS_URL_PRIVATE");
+    if (savedPrivate && el.lobbyWsUrlPrivate) {
+      el.lobbyWsUrlPrivate.value = savedPrivate;
+    }
+    const legacy = localStorage.getItem("LOBBY_WS_URL");
+    if (legacy && el.lobbyWsUrlPrivate && !el.lobbyWsUrlPrivate.value.trim()) {
+      const pub = defaultLobbyWsUrl();
+      if (legacy.trim() && legacy.trim() !== pub) {
+        el.lobbyWsUrlPrivate.value = legacy.trim();
+      }
+    }
+    const savedTarget = localStorage.getItem(LOBBY_TARGET_KEY);
+    if (savedTarget === "private" || savedTarget === "public") {
+      setLobbyTargetRadio(savedTarget);
+    } else if (el.lobbyWsUrlPrivate && el.lobbyWsUrlPrivate.value.trim()) {
+      setLobbyTargetRadio("private");
+    } else {
+      setLobbyTargetRadio("public");
+    }
+    updateLobbyModeIndicator();
   } catch {
     /* ignore */
   }
@@ -136,8 +192,8 @@ function loadLobbyWsUrlField() {
 
 function persistLobbyWsUrl() {
   try {
-    if (el.lobbyWsUrl) {
-      localStorage.setItem("LOBBY_WS_URL", el.lobbyWsUrl.value.trim() || defaultLobbyWsUrl());
+    if (el.lobbyWsUrlPrivate) {
+      localStorage.setItem("LOBBY_WS_URL_PRIVATE", el.lobbyWsUrlPrivate.value.trim());
     }
   } catch {
     /* ignore */
@@ -145,27 +201,85 @@ function persistLobbyWsUrl() {
 }
 
 function lobbyWsUrlResolved() {
-  const v = (el.lobbyWsUrl && el.lobbyWsUrl.value.trim()) || defaultLobbyWsUrl();
-  return v;
+  if (getLobbyTarget() === "public") {
+    return defaultLobbyWsUrl();
+  }
+  return (el.lobbyWsUrlPrivate && el.lobbyWsUrlPrivate.value.trim()) || "";
+}
+
+function usesPrivateLobby() {
+  return getLobbyTarget() === "private";
+}
+
+function updateLobbyModeIndicator() {
+  const priv = getLobbyTarget() === "private";
+  if (el.lobbyWsUrlPublic) {
+    el.lobbyWsUrlPublic.classList.toggle("lobby-input--active", !priv);
+  }
+  if (el.lobbyWsUrlPrivate) {
+    el.lobbyWsUrlPrivate.classList.toggle("lobby-input--active", priv);
+  }
 }
 
 function setLobbyConnectionUi(connected) {
+  const modeShort = usesPrivateLobby() ? "PRIVATE" : "PUBLIC";
   if (el.lobbyWsStatus) {
-    el.lobbyWsStatus.textContent = connected ? "connected" : "disconnected";
+    if (!connected) {
+      el.lobbyWsStatus.textContent = `disconnected · next: ${modeShort}`;
+    } else {
+      el.lobbyWsStatus.textContent = lobbyState.authenticated
+        ? `connected + authenticated · ${modeShort} lobby`
+        : `connected (auth pending) · ${modeShort} lobby`;
+    }
   }
   if (el.lobbyConnectBtn) el.lobbyConnectBtn.disabled = connected;
   if (el.lobbyDisconnectBtn) el.lobbyDisconnectBtn.disabled = !connected;
   updateLobbyControls();
 }
 
+function joinQueueBlockedHint() {
+  const walletOk = Boolean(state.signer && !state.readOnly && state.address);
+  const wsOk = lobbyState.ws && lobbyState.ws.readyState === WebSocket.OPEN;
+  if (!walletOk) return "Connect wallet (signing) first.";
+  if (!wsOk) return 'Click [ CONNECT ] under Lobby server and wait for “connected”.';
+  if (!lobbyState.authenticated) return "Approve the lobby signature in your wallet, then wait for “authenticated”.";
+  return "";
+}
+
+function syncLobbySessionPanels() {
+  const g = lobbyState.queueGame;
+  const bind = (panel, textEl, lineEl, gameKey) => {
+    if (!panel || !textEl) return;
+    const on = g === gameKey;
+    panel.classList.toggle("hidden", !on);
+    panel.setAttribute("aria-hidden", String(!on));
+    if (on) {
+      textEl.textContent = (lineEl && lineEl.textContent) || "Waiting…";
+    }
+  };
+  bind(el.duelLobbyPanel, el.duelLobbyPanelText, el.duelQueueStatus, "duel1v1");
+  bind(el.highrollerLobbyPanel, el.highrollerLobbyPanelText, el.highrollerQueueStatus, "duel_highroller");
+  bind(el.mayorLobbyPanel, el.mayorLobbyPanelText, el.mayorQueueStatus, "mayor_voting");
+}
+
 function updateLobbyControls() {
   const walletOk = Boolean(state.signer && !state.readOnly && state.address);
   const wsOk = lobbyState.ws && lobbyState.ws.readyState === WebSocket.OPEN;
-  const canQueue = walletOk && wsOk;
+  const canQueue = walletOk && wsOk && lobbyState.authenticated;
+  const hint = joinQueueBlockedHint();
 
-  if (el.duelJoinQueueBtn) el.duelJoinQueueBtn.disabled = !canQueue;
-  if (el.highrollerJoinQueueBtn) el.highrollerJoinQueueBtn.disabled = !canQueue;
-  if (el.mayorJoinQueueBtn) el.mayorJoinQueueBtn.disabled = !canQueue;
+  if (el.duelJoinQueueBtn) {
+    el.duelJoinQueueBtn.disabled = !canQueue;
+    el.duelJoinQueueBtn.title = canQueue ? "" : hint;
+  }
+  if (el.highrollerJoinQueueBtn) {
+    el.highrollerJoinQueueBtn.disabled = !canQueue;
+    el.highrollerJoinQueueBtn.title = canQueue ? "" : hint;
+  }
+  if (el.mayorJoinQueueBtn) {
+    el.mayorJoinQueueBtn.disabled = !canQueue;
+    el.mayorJoinQueueBtn.title = canQueue ? "" : hint;
+  }
 
   const inDuel = lobbyState.queueGame === "duel1v1";
   const inHigh = lobbyState.queueGame === "duel_highroller";
@@ -174,6 +288,40 @@ function updateLobbyControls() {
   if (el.duelLeaveQueueBtn) el.duelLeaveQueueBtn.disabled = !wsOk || !inDuel;
   if (el.highrollerLeaveQueueBtn) el.highrollerLeaveQueueBtn.disabled = !wsOk || !inHigh;
   if (el.mayorLeaveQueueBtn) el.mayorLeaveQueueBtn.disabled = !wsOk || !inMayor;
+
+  syncLobbySessionPanels();
+}
+
+function clearLobbyHeartbeat() {
+  if (lobbyState.heartbeatTimer) {
+    clearInterval(lobbyState.heartbeatTimer);
+    lobbyState.heartbeatTimer = null;
+  }
+}
+
+function startLobbyHeartbeat() {
+  clearLobbyHeartbeat();
+  lobbyState.heartbeatTimer = setInterval(() => {
+    if (!lobbyState.ws || lobbyState.ws.readyState !== WebSocket.OPEN) return;
+    lobbyState.ws.send(JSON.stringify({ type: "ping", ts: Date.now() }));
+  }, 15000);
+}
+
+async function sendLobbyAuthHello() {
+  if (!lobbyState.ws || lobbyState.ws.readyState !== WebSocket.OPEN) return;
+  if (!state.signer || state.readOnly || !state.address) {
+    lobbyState.authenticated = false;
+    setLobbyConnectionUi(true);
+    updateLobbyControls();
+    return;
+  }
+  lobbyState.ws.send(
+    JSON.stringify({
+      type: "auth_hello",
+      clientId: lobbyState.clientId,
+      address: state.address,
+    })
+  );
 }
 
 function resetQueueStatusTexts() {
@@ -199,10 +347,63 @@ function applyQueueStatus(msg) {
   if (game === "mayor_voting" && el.mayorQueueStatus) el.mayorQueueStatus.textContent = line;
 }
 
+function lobbyWsCloseDescription(ev) {
+  const code = ev.code;
+  const reason = (ev.reason && String(ev.reason).trim()) || "";
+  const known = {
+    1000: "normal close",
+    1001: "going away",
+    1002: "protocol error",
+    1003: "unsupported data",
+    1006: "abnormal (no close frame — often network drop, proxy, or host closed without handshake)",
+    1008: "policy violation",
+    1011: "server error",
+    1012: "service restart",
+    1015: "TLS handshake failed",
+  };
+  const label = known[code] || `code ${code}`;
+  const extra = reason ? ` — ${reason}` : "";
+  return `${label}${extra}`;
+}
+
+function lobbyWsErrorLogHint(urlStr) {
+  try {
+    const u = new URL(urlStr);
+    const host = u.hostname || "";
+    if (host === "localhost" || host === "127.0.0.1" || host === "[::1]") {
+      return "Lobby WebSocket error — start the lobby in carnival-hub: npm run lobby";
+    }
+    if (host.includes("cloudapp.azure.com") || host.includes("buzz-carnival")) {
+      return "Lobby WebSocket error — could not complete socket to public host (firewall/VPN, outage, or TLS). Retry [ CONNECT ] or use a private lobby URL you control.";
+    }
+    return `Lobby WebSocket error — check WSS URL and that ${host} allows WebSockets.`;
+  } catch {
+    return "Lobby WebSocket error — connection failed.";
+  }
+}
+
 function connectLobbyWs() {
-  if (lobbyState.ws && lobbyState.ws.readyState === WebSocket.OPEN) return;
+  if (lobbyState.ws && lobbyState.ws.readyState === WebSocket.OPEN) {
+    log("Already connected to the lobby.");
+    return;
+  }
   persistLobbyWsUrl();
+  persistLobbyTarget();
   const url = lobbyWsUrlResolved();
+  if (!url) {
+    log("Private lobby is selected but the WSS URL is empty. Enter a URL or switch to public lobby.", true);
+    return;
+  }
+  if (lobbyState.ws) {
+    try {
+      lobbyState.ws.close();
+    } catch {
+      /* ignore */
+    }
+    lobbyState.ws = null;
+  }
+
+  log("Connecting to lobby…");
   let ws;
   try {
     ws = new WebSocket(url);
@@ -213,22 +414,32 @@ function connectLobbyWs() {
   lobbyState.ws = ws;
 
   ws.onopen = () => {
+    if (lobbyState.ws !== ws) return;
+    lobbyState.authenticated = false;
     setLobbyConnectionUi(true);
+    startLobbyHeartbeat();
     log(`Lobby server connected (${url}).`);
+    void sendLobbyAuthHello();
   };
 
-  ws.onclose = () => {
+  ws.onclose = (ev) => {
+    if (lobbyState.ws !== ws) return;
+    lobbyState.ws = null;
     lobbyState.queueGame = null;
+    lobbyState.authenticated = false;
+    clearLobbyHeartbeat();
     setLobbyConnectionUi(false);
     resetQueueStatusTexts();
-    log("Lobby server disconnected.");
+    log(`Lobby disconnected (${lobbyWsCloseDescription(ev)}).`);
   };
 
   ws.onerror = () => {
-    log("Lobby WebSocket error (is `npm run lobby` running?)", true);
+    if (lobbyState.ws !== ws) return;
+    log(lobbyWsErrorLogHint(url), true);
   };
 
   ws.onmessage = (ev) => {
+    if (lobbyState.ws !== ws) return;
     let msg;
     try {
       msg = JSON.parse(ev.data);
@@ -237,6 +448,46 @@ function connectLobbyWs() {
     }
     if (msg.type === "queue_status") {
       applyQueueStatus(msg);
+      return;
+    }
+    if (msg.type === "auth_challenge") {
+      if (!state.signer || state.readOnly || !state.address) {
+        log("Lobby requested auth, but wallet is not in signing mode.", true);
+        return;
+      }
+      Promise.resolve()
+        .then(async () => {
+          const signature = await state.signer.signMessage(msg.message);
+          if (lobbyState.ws !== ws || lobbyState.ws.readyState !== WebSocket.OPEN) return;
+          lobbyState.ws.send(
+            JSON.stringify({
+              type: "auth_response",
+              clientId: msg.clientId,
+              address: msg.address,
+              signature,
+            })
+          );
+        })
+        .catch((e) => {
+          log(`Lobby auth signature failed: ${e.message}`, true);
+        });
+      return;
+    }
+    if (msg.type === "auth_ok") {
+      lobbyState.authenticated = true;
+      setLobbyConnectionUi(true);
+      updateLobbyControls();
+      log(`Lobby auth OK for ${msg.address}`);
+      return;
+    }
+    if (msg.type === "auth_error") {
+      lobbyState.authenticated = false;
+      setLobbyConnectionUi(true);
+      updateLobbyControls();
+      log(`Lobby auth failed: ${msg.message}`, true);
+      return;
+    }
+    if (msg.type === "pong") {
       return;
     }
     if (msg.type === "queue_joined") {
@@ -267,17 +518,21 @@ function connectLobbyWs() {
 }
 
 function disconnectLobbyWs() {
-  if (lobbyState.ws) {
+  const prev = lobbyState.ws;
+  lobbyState.ws = null;
+  if (prev) {
     try {
-      lobbyState.ws.close();
+      prev.close();
     } catch {
       /* ignore */
     }
-    lobbyState.ws = null;
   }
   lobbyState.queueGame = null;
+  lobbyState.authenticated = false;
+  clearLobbyHeartbeat();
   setLobbyConnectionUi(false);
   resetQueueStatusTexts();
+  log("Lobby disconnected (by you).");
 }
 
 function sendJoinQueue(game) {
@@ -289,11 +544,18 @@ function sendJoinQueue(game) {
     log("Connect to lobby server first.", true);
     return;
   }
+  if (!lobbyState.authenticated) {
+    log(
+      "Lobby has not authenticated your wallet yet. Approve the signature request, then wait for “connected + authenticated” under the lobby status.",
+      true
+    );
+    return;
+  }
   const payload = {
     type: "join_queue",
     game,
     clientId: lobbyState.clientId,
-    address: state.address,
+    address: ethers.getAddress(state.address),
   };
   if (game === "mayor_voting") {
     const amount = Number(el.mayorAmountInput && el.mayorAmountInput.value ? el.mayorAmountInput.value : "0");
@@ -303,6 +565,7 @@ function sendJoinQueue(game) {
     }
     payload.mayorBidWei = ethers.parseEther(String(amount)).toString();
   }
+  log(`Sending join_queue for ${game}…`);
   lobbyState.ws.send(JSON.stringify(payload));
 }
 
@@ -397,6 +660,9 @@ async function connectWallet() {
     setActionButtonsDisabled(false);
     await refreshAccountData();
     log(`Wallet connected: ${state.address}`);
+    if (lobbyState.ws && lobbyState.ws.readyState === WebSocket.OPEN) {
+      void sendLobbyAuthHello();
+    }
   } catch (err) {
     log(`Wallet connect failed: ${err.message}`, true);
   }
@@ -413,6 +679,11 @@ async function connectManual() {
     setActionButtonsDisabled(true);
     await refreshAccountData();
     log(`Read-only connected: ${addr}`);
+    lobbyState.authenticated = false;
+    if (lobbyState.ws && lobbyState.ws.readyState === WebSocket.OPEN) {
+      setLobbyConnectionUi(true);
+      updateLobbyControls();
+    }
   } catch (err) {
     log(`Manual connect failed: ${err.message}`, true);
   }
@@ -721,6 +992,23 @@ el.encodeBtn.addEventListener("click", () => {
 });
 
 loadLobbyWsUrlField();
+function onLobbyTargetChange() {
+  persistLobbyTarget();
+  updateLobbyModeIndicator();
+  setLobbyConnectionUi(Boolean(lobbyState.ws && lobbyState.ws.readyState === WebSocket.OPEN));
+}
+if (el.lobbyTargetPublic) {
+  el.lobbyTargetPublic.addEventListener("change", onLobbyTargetChange);
+}
+if (el.lobbyTargetPrivate) {
+  el.lobbyTargetPrivate.addEventListener("change", onLobbyTargetChange);
+}
+if (el.lobbyWsUrlPrivate) {
+  el.lobbyWsUrlPrivate.addEventListener("input", () => {
+    persistLobbyWsUrl();
+    setLobbyConnectionUi(Boolean(lobbyState.ws && lobbyState.ws.readyState === WebSocket.OPEN));
+  });
+}
 setActionButtonsDisabled(true);
 setLobbyConnectionUi(false);
 refreshKing();

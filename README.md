@@ -40,7 +40,7 @@ All contracts are deployed on **Sepolia testnet**.
 | Contract         | Address                                      |
 |------------------|----------------------------------------------|
 | BuzzToken        | `0x26b7bbf61eAf8Aa9b4b6919593A3272DadE22705` |
-| BuzzCarnival     | `0x912065165C9381732d694C9699e62B2bb02Fd999` |
+| BuzzCarnival     | `  ` |
 | KingOfTheHill    | `0xE92913e15BED6a5FC019d6EF258b2ECaB3B63845` |
 | BullToken        | `0xf8c42e0E0F895ECaAAA1a7737731DbdD06861DAF` |
 | BuzzSwap (DEX)   | `0xCadcEC3A21dCF45044adB463d865ce7c2B4B6971` |

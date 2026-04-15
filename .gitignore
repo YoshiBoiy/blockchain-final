@@ -5,3 +5,4 @@ broadcast/
 .env.local
 pay_to_mine_state.json
 carnival-hub/node_modules/
+BUZZ_key.pem
